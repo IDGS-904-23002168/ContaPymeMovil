@@ -23,11 +23,12 @@ import com.example.contapyme.navigation.Routes
 import com.example.contapyme.ui.components.FloatingBottomBar
 import com.example.contapyme.ui.components.QuickActionSheet
 import com.example.contapyme.ui.screens.AgregarClienteScreen
-import com.example.contapyme.ui.screens.ClientesScreen
+import com.example.contapyme.ui.screens.clientes.ClientesScreen
 import com.example.contapyme.ui.screens.DashboardScreen
 import com.example.contapyme.ui.screens.DetalleAlertaScreen
 import com.example.contapyme.ui.screens.DetalleClienteScreen
 import com.example.contapyme.ui.screens.DetalleVentaScreen
+import com.example.contapyme.ui.screens.InicioScreen
 import com.example.contapyme.ui.screens.InventarioScreen
 import com.example.contapyme.ui.screens.NotificacionesScreen
 import com.example.contapyme.ui.screens.RegistrarGastoScreen
@@ -72,9 +73,24 @@ fun AppNavHost() {
     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFFF4F6FB))) {
         NavHost(
             navController = navController,
-            startDestination = Routes.LOGIN,
+            startDestination = Routes.INICIO,
             modifier = Modifier.fillMaxSize()
         ) {
+            composable(Routes.INICIO) {
+                InicioScreen(
+                    onTimeout = {
+                        val destination = if (authViewModel.uiState.value.isLoggedIn) {
+                            Routes.DASHBOARD
+                        } else {
+                            Routes.LOGIN
+                        }
+                        navController.navigate(destination) {
+                            popUpTo(Routes.INICIO) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable(Routes.LOGIN) {
                 LoginScreenNew(
                     viewModel = authViewModel,
@@ -178,6 +194,7 @@ fun AppNavHost() {
                 )
             }
 
+            //CLIENTES
             composable(Routes.CLIENTES) {
                 ClientesScreen(
                     onBack = { navController.popBackStack() },
@@ -193,11 +210,25 @@ fun AppNavHost() {
                 )
             }
 
-            composable("${Routes.DETALLE_CLIENTE}/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: "C-0004"
-                DetalleClienteScreen(onBack = { navController.popBackStack() })
+            composable("${Routes.EDITAR_CLIENTE}/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id") ?: return@composable
+                AgregarClienteScreen(
+                    clienteId = id,
+                    onBack = { navController.popBackStack() },
+                    onGuardar = { navController.popBackStack() }
+                )
             }
 
+            composable("${Routes.DETALLE_CLIENTE}/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id") ?: return@composable
+                DetalleClienteScreen(
+                    clienteId = id,
+                    onBack = { navController.popBackStack() },
+                    onEditar = { navController.navigate(Routes.editarCliente(id)) }
+                )
+            }
+
+            //VENTAS
             composable(Routes.VENTAS) {
                 VentasScreen(
                     onBack = { navController.popBackStack() },

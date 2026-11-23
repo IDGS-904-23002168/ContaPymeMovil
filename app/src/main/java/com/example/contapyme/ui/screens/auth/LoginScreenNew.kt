@@ -1,5 +1,6 @@
 package com.example.contapyme.ui.screens.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +45,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -51,6 +54,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.contapyme.R
 import com.example.contapyme.ui.components.PrimaryButton
 import com.example.contapyme.ui.components.SpacerH12
 import com.example.contapyme.ui.components.SpacerH16
@@ -73,32 +77,32 @@ fun LoginScreenNew(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    
+
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    
+
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
     }
-    
+
     // Paso 1 completado: el servidor envió el código 2FA
     LaunchedEffect(uiState.requires2FA, uiState.tempToken) {
         if (uiState.requires2FA && !uiState.tempToken.isNullOrBlank()) {
             onRequires2FA()
         }
     }
-    
+
     // Sesión ya activa (restaurada o verificada)
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
             onAlreadyLoggedIn()
         }
     }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -107,10 +111,10 @@ fun LoginScreenNew(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(60.dp))
+            Spacer(Modifier.height(32.dp))
             LogoContaPyme()
-            Spacer(Modifier.height(60.dp))
-            
+            Spacer(Modifier.height(28.dp))
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -193,7 +197,7 @@ fun LoginScreenNew(
                     SpacerH20()
                     PrimaryButton(
                         text = if (uiState.isLoading) "VERIFICANDO..." else "INICIAR SESIÓN",
-                        onClick = { 
+                        onClick = {
                             if (!uiState.isLoading) {
                                 viewModel.login(username.trim(), password)
                             }
@@ -203,7 +207,7 @@ fun LoginScreenNew(
                     )
                 }
             }
-            
+
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(bottom = 40.dp)) {
                 Text(
@@ -221,7 +225,7 @@ fun LoginScreenNew(
                 )
             }
         }
-        
+
         IconButton(
             onClick = onNavigateToApiConfig,
             modifier = Modifier
@@ -234,7 +238,7 @@ fun LoginScreenNew(
                 tint = TextSecondary.copy(alpha = 0.6f)
             )
         }
-        
+
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter)
@@ -243,45 +247,14 @@ fun LoginScreenNew(
 }
 
 @Composable
-fun LogoContaPyme(compact: Boolean = false) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(if (compact) 36.dp else 52.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(BlueDark, Color(0xFF3B82F6)))),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.TrendingUp,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(if (compact) 22.dp else 32.dp)
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Column {
-                Text(
-                    text = "Conta",
-                    fontSize = if (compact) 20.sp else 30.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Navy
-                )
-                Text(
-                    text = "Pyme",
-                    fontSize = if (compact) 20.sp else 30.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Navy
-                )
-            }
-        }
-        SpacerH12()
-        Text(
-            text = "Administración y Contabilidad para PyMEs",
-            fontSize = if (compact) 9.sp else 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Navy
-        )
-    }
+fun LogoContaPyme(
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
+) {
+    Image(
+        painter = painterResource(id = R.drawable.logoazul),
+        contentDescription = "ContaPyme",
+        modifier = modifier.width(if (compact) 140.dp else 220.dp),
+        contentScale = ContentScale.Fit
+    )
 }

@@ -16,7 +16,7 @@ class SessionManager(private val context: Context) {
         private val KEY_USER_EMAIL = stringPreferencesKey("user_email")
         private val KEY_ROL_NAME = stringPreferencesKey("rol_name")
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
-        private const val DEFAULT_API_ORIGIN = "http://10.0.2.2:5000"
+        private const val DEFAULT_API_ORIGIN = "http://192.168.1.93:5001"
 
         fun normalizeApiOrigin(input: String): String {
             var url = input.trim()

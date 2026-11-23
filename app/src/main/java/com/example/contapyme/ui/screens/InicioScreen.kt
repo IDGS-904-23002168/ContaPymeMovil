@@ -2,7 +2,6 @@ package com.example.contapyme.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,13 +35,11 @@ private val AzulProfundo = Color(0xFF0A1A5E)
 fun InicioScreen(onTimeout: () -> Unit = {}) {
     val alpha = remember { Animatable(0f) }
     val scale = remember { Animatable(0.92f) }
-    val progress = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
         launch { alpha.animateTo(1f, tween(900)) }
         launch { scale.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
-        launch { progress.animateTo(1f, tween(2200, easing = LinearEasing)) }
-        delay(2400)
+        delay(2200)
         onTimeout()
     }
 
