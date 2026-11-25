@@ -6,8 +6,11 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.SouthWest
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.contapyme.data.model.NotificacionDto
 import com.example.contapyme.ui.theme.ErrorRed
 import com.example.contapyme.ui.theme.WarningAmber
+import java.text.NumberFormat
+import java.util.Locale
 
 data class DashboardAlertItem(
     val alertaId: String,
@@ -28,49 +31,144 @@ data class DashboardAlertGroup(
     val items: List<DashboardAlertItem>
 )
 
-val dashboardAlerts = listOf(
-    DashboardAlertGroup(
-        icon = Icons.Filled.Inventory2,
-        iconBg = Color(0xFF1E3A8A),
-        title = "Existencias bajas",
-        badgeCount = 6,
-        badgeColor = WarningAmber,
-        items = listOf(
-            DashboardAlertItem("N-0091", "SSD Kingston 480 GB", "Mínimo 8 pz", cantidad = "3 pz", estado = "Stock bajo", estadoColor = WarningAmber),
-            DashboardAlertItem("N-0084", "Cable HDMI 2 m", "Mínimo 10 pz", cantidad = "4 pz", estado = "Stock bajo", estadoColor = WarningAmber)
+/**
+ * Convierte las notificaciones reales del backend
+ * en grupos de alertas para el Dashboard.
+ */
+fun construirDashboardAlerts(
+    notificaciones: List<NotificacionDto>
+): List<DashboardAlertGroup> {
+
+    val grupos = mutableListOf<DashboardAlertGroup>()
+
+    fun agregarGrupo(
+        alertas: List<NotificacionDto>,
+        titulo: String,
+        icono: ImageVector,
+        color: Color
+    ) {
+        if (alertas.isEmpty()) return
+
+        grupos.add(
+            DashboardAlertGroup(
+                icon = icono,
+                iconBg = color.copy(alpha = 0.12f),
+                title = titulo,
+                badgeCount = alertas.size,
+                badgeColor = color,
+                items = alertas.take(2).map {
+                    it.toDashboardAlertItem()
+                }
+            )
         )
-    ),
-    DashboardAlertGroup(
-        icon = Icons.Filled.Inventory2,
-        iconBg = Color(0xFF1E3A8A),
-        title = "Productos agotados",
-        badgeCount = 3,
-        badgeColor = ErrorRed,
-        items = listOf(
-            DashboardAlertItem("N-0090", "Mouse Logitech M185", "Última venta hace 2 días", cantidad = "0 pz", estado = "Agotado", estadoColor = ErrorRed),
-            DashboardAlertItem("N-0093", "Cargador USB-C 65 W", "Última venta ayer", cantidad = "0 pz", estado = "Agotado", estadoColor = ErrorRed)
-        )
-    ),
-    DashboardAlertGroup(
-        icon = Icons.Filled.SouthWest,
-        iconBg = Color(0xFF1E3A8A),
-        title = "Cuentas por cobrar vencidas",
-        badgeCount = 5,
-        badgeColor = ErrorRed,
-        items = listOf(
-            DashboardAlertItem("N-0089", "Soluciones TI del Bajío", "Venta V-0231 · venció hace 5 días", monto = "$12,400", estado = "Vencida", estadoColor = ErrorRed),
-            DashboardAlertItem("N-0092", "Oficinas Delta", "Venta V-0224 · venció hace 3 días", monto = "$8,900", estado = "Vencida", estadoColor = ErrorRed)
-        )
-    ),
-    DashboardAlertGroup(
-        icon = Icons.Filled.CardMembership,
-        iconBg = Color(0xFF1E3A8A),
-        title = "Pagos pendientes vencidos",
-        badgeCount = 2,
-        badgeColor = ErrorRed,
-        items = listOf(
-            DashboardAlertItem("N-0086", "Tecnomayoreo S.A.", "Compra C-0118 · venció hace 2 días", monto = "$18,600", estado = "Vencido", estadoColor = ErrorRed),
-            DashboardAlertItem("N-0085", "Distribuidora Digital", "Compra C-0112 · venció hace 6 días", monto = "$7,350", estado = "Vencido", estadoColor = ErrorRed)
-        )
+    }
+
+    // Productos sin existencias.
+    agregarGrupo(
+        alertas = notificaciones.filter {
+            it.categoria == "inventario" &&
+                    it.prioridad == "alta"
+        },
+        titulo = "Productos agotados",
+        icono = Icons.Filled.Inventory2,
+        color = ErrorRed
     )
-)
+
+    // Cuentas por cobrar vencidas.
+    agregarGrupo(
+        alertas = notificaciones.filter {
+            it.categoria == "cxc" &&
+                    it.tipo == "vencida"
+        },
+        titulo = "Cuentas por cobrar vencidas",
+        icono = Icons.Filled.SouthWest,
+        color = ErrorRed
+    )
+
+    // Cuentas por pagar vencidas.
+    agregarGrupo(
+        alertas = notificaciones.filter {
+            it.categoria == "cxp" &&
+                    it.tipo == "vencida"
+        },
+        titulo = "Pagos pendientes vencidos",
+        icono = Icons.Filled.CardMembership,
+        color = ErrorRed
+    )
+
+    // Productos con existencias bajas.
+    agregarGrupo(
+        alertas = notificaciones.filter {
+            it.categoria == "inventario" &&
+                    it.prioridad == "media"
+        },
+        titulo = "Existencias bajas",
+        icono = Icons.Filled.Inventory2,
+        color = WarningAmber
+    )
+
+    // Cuentas por cobrar próximas a vencer.
+    agregarGrupo(
+        alertas = notificaciones.filter {
+            it.categoria == "cxc" &&
+                    it.tipo == "proxima"
+        },
+        titulo = "Cobros próximos a vencer",
+        icono = Icons.Filled.SouthWest,
+        color = WarningAmber
+    )
+
+    // Cuentas por pagar próximas a vencer.
+    agregarGrupo(
+        alertas = notificaciones.filter {
+            it.categoria == "cxp" &&
+                    it.tipo == "proxima"
+        },
+        titulo = "Pagos próximos a vencer",
+        icono = Icons.Filled.CardMembership,
+        color = WarningAmber
+    )
+
+    return grupos
+}
+
+/**
+ * Convierte una notificación en una tarjeta
+ * compatible con el diseño del Dashboard.
+ */
+private fun NotificacionDto.toDashboardAlertItem():
+        DashboardAlertItem {
+
+    val estadoAlerta = when {
+        categoria == "inventario" &&
+                prioridad == "alta" -> "Agotado"
+
+        categoria == "inventario" -> "Stock bajo"
+
+        tipo == "vencida" -> "Vencida"
+
+        tipo == "proxima" -> "Por vencer"
+
+        else -> "Alerta"
+    }
+
+    val colorEstado = if (prioridad == "alta") {
+        ErrorRed
+    } else {
+        WarningAmber
+    }
+
+    return DashboardAlertItem(
+        alertaId = id,
+        nombre = titulo,
+        detalle = mensaje,
+        cantidad = null,
+        monto = saldoPendiente?.let {
+            NumberFormat.getCurrencyInstance(
+                Locale("es", "MX")
+            ).format(it)
+        },
+        estado = estadoAlerta,
+        estadoColor = colorEstado
+    )
+}

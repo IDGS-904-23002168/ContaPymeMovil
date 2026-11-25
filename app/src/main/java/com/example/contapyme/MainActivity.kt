@@ -8,12 +8,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -42,6 +49,9 @@ import com.example.contapyme.ui.screens.auth.ResetPasswordScreen
 import com.example.contapyme.ui.screens.auth.TwoFAScreen
 import com.example.contapyme.ui.theme.ContaPymeTheme
 import com.example.contapyme.ui.viewmodel.AuthViewModel
+import com.example.contapyme.ui.viewmodel.NotificacionesViewModel
+import com.example.contapyme.ui.viewmodel.NotificacionesUiState
+import kotlinx.coroutines.flow.collect
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,32 +75,197 @@ private val bottomBarRoutes = setOf(
 @Composable
 fun AppNavHost() {
     val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-    var showQuickActions by remember { mutableStateOf(false) }
+
+    val navBackStackEntry by
+    navController.currentBackStackEntryAsState()
+
+    val currentRoute =
+        navBackStackEntry?.destination?.route
+
+    var showQuickActions by remember {
+        mutableStateOf(false)
+    }
+
+    // ViewModel original de autenticación.
     val authViewModel: AuthViewModel = viewModel()
 
-    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFFF4F6FB))) {
+    // ViewModel compartido del módulo de notificaciones.
+    val notificacionesViewModel: NotificacionesViewModel =
+        viewModel()
+
+    // Estado de las notificaciones.
+    val estadoNotificaciones by
+    notificacionesViewModel.uiState.collectAsState()
+
+    // Control de la sesión de notificaciones.
+    var tokenActual by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var cerrandoSesion by remember {
+        mutableStateOf(false)
+    }
+
+    // Ciclo de vida de la Activity.
+    val lifecycleOwner = LocalContext.current as LifecycleOwner
+    val lifecycle = lifecycleOwner.lifecycle
+
+    var appActiva by remember(lifecycle) {
+        mutableStateOf(
+            lifecycle.currentState.isAtLeast(
+                Lifecycle.State.STARTED
+            )
+        )
+    }
+
+    // Observar si la aplicación está visible o
+    // pasa a segundo plano.
+    DisposableEffect(lifecycle) {
+
+        val observer = LifecycleEventObserver { _, evento ->
+
+            when (evento) {
+
+                Lifecycle.Event.ON_START -> {
+                    appActiva = true
+                }
+
+                Lifecycle.Event.ON_STOP -> {
+                    appActiva = false
+
+                    notificacionesViewModel
+                        .detenerActualizacionAutomatica()
+                }
+
+                else -> Unit
+            }
+        }
+
+        lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycle.removeObserver(observer)
+
+            notificacionesViewModel
+                .detenerActualizacionAutomatica()
+        }
+    }
+
+    // Observar el token almacenado en SessionManager.
+    // También detecta cuando el interceptor elimina
+    // una sesión expirada.
+    LaunchedEffect(authViewModel, notificacionesViewModel) {
+
+        authViewModel.tokenFlow.collect { token ->
+
+            val nuevoToken = token?.takeIf {
+                it.isNotBlank()
+            }
+
+            // Limpiar las alertas si cambia el usuario
+            // o se elimina la sesión.
+            if (tokenActual != nuevoToken) {
+
+                notificacionesViewModel.limpiarSesion()
+
+                tokenActual = nuevoToken
+            }
+
+            if (nuevoToken == null) {
+
+                notificacionesViewModel.limpiarSesion()
+
+                cerrandoSesion = false
+            }
+        }
+    }
+
+    // Controlar las consultas según la sesión
+    // y el estado de la aplicación.
+    LaunchedEffect(
+        tokenActual,
+        appActiva,
+        cerrandoSesion
+    ) {
+
+        when {
+
+            tokenActual.isNullOrBlank() ||
+                    cerrandoSesion -> {
+
+                notificacionesViewModel.limpiarSesion()
+            }
+
+            appActiva -> {
+
+                // Iniciar la sesión de notificaciones.
+                notificacionesViewModel.iniciarSesion()
+
+                // Actualizar al regresar a la aplicación.
+                notificacionesViewModel.cargarNotificaciones(
+                    mostrarCarga = false
+                )
+
+                // Consultar automáticamente cada 60 segundos.
+                notificacionesViewModel
+                    .iniciarActualizacionAutomatica()
+            }
+
+            else -> {
+
+                // Detener consultas periódicas cuando
+                // la aplicación pasa a segundo plano.
+                notificacionesViewModel
+                    .detenerActualizacionAutomatica()
+            }
+        }
+    }
+
+    // Evitar mostrar información anterior mientras
+    // se está cerrando la sesión.
+    val notificacionesState = if (
+        tokenActual.isNullOrBlank() || cerrandoSesion
+    ) {
+        NotificacionesUiState()
+    } else {
+        estadoNotificaciones
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(
+                androidx.compose.ui.graphics.Color(0xFFF4F6FB)
+            )
+    ) {
+
         NavHost(
             navController = navController,
             startDestination = Routes.INICIO,
             modifier = Modifier.fillMaxSize()
         ) {
+            // INICIO
             composable(Routes.INICIO) {
                 InicioScreen(
                     onTimeout = {
-                        val destination = if (authViewModel.uiState.value.isLoggedIn) {
+
+                        val destination = if (
+                            authViewModel.uiState.value.isLoggedIn
+                        ) {
                             Routes.DASHBOARD
                         } else {
                             Routes.LOGIN
                         }
                         navController.navigate(destination) {
-                            popUpTo(Routes.INICIO) { inclusive = true }
+                            popUpTo(Routes.INICIO) {
+                                inclusive = true
+                            }
                         }
                     }
                 )
             }
 
+            // INICIO DE SESIÓN
             composable(Routes.LOGIN) {
                 LoginScreenNew(
                     viewModel = authViewModel,
@@ -101,18 +276,25 @@ fun AppNavHost() {
                     },
                     onAlreadyLoggedIn = {
                         navController.navigate(Routes.DASHBOARD) {
-                            popUpTo(Routes.LOGIN) { inclusive = true }
+                            popUpTo(Routes.LOGIN) {
+                                inclusive = true
+                            }
                         }
                     },
                     onNavigateToForgotPassword = {
-                        navController.navigate(Routes.FORGOT_PASSWORD)
+                        navController.navigate(
+                            Routes.FORGOT_PASSWORD
+                        )
                     },
                     onNavigateToApiConfig = {
-                        navController.navigate(Routes.API_CONFIG)
+                        navController.navigate(
+                            Routes.API_CONFIG
+                        )
                     }
                 )
             }
 
+            // AUTENTICACIÓN DE DOS FACTORES
             composable(Routes.TWO_FA) {
                 TwoFAScreen(
                     viewModel = authViewModel,
@@ -122,174 +304,382 @@ fun AppNavHost() {
                     },
                     onVerified = {
                         navController.navigate(Routes.DASHBOARD) {
-                            popUpTo(Routes.LOGIN) { inclusive = true }
+                            popUpTo(Routes.LOGIN) {
+                                inclusive = true
+                            }
                         }
                     }
                 )
             }
 
+            // RECUPERAR CONTRASEÑA
             composable(Routes.FORGOT_PASSWORD) {
                 ForgotPasswordScreen(
                     viewModel = authViewModel,
-                    onBack = { navController.popBackStack() },
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
                     onNavigateToReset = { token ->
-                        navController.navigate("${Routes.RESET_PASSWORD}/$token")
+                        navController.navigate(
+                            "${Routes.RESET_PASSWORD}/$token"
+                        )
                     }
                 )
             }
 
-            composable("${Routes.RESET_PASSWORD}/{token}") { backStackEntry ->
-                val token = backStackEntry.arguments?.getString("token") ?: ""
+            // RESTABLECER CONTRASEÑA
+            composable(
+                "${Routes.RESET_PASSWORD}/{token}"
+            ) { backStackEntry ->
+
+                val token =
+                    backStackEntry.arguments
+                        ?.getString("token") ?: ""
+
                 ResetPasswordScreen(
                     viewModel = authViewModel,
                     token = token,
-                    onBack = { navController.popBackStack() },
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
                     onSuccess = {
                         navController.navigate(Routes.LOGIN) {
-                            popUpTo(Routes.LOGIN) { inclusive = true }
+                            popUpTo(Routes.LOGIN) {
+                                inclusive = true
+                            }
                         }
                     }
                 )
             }
 
+            // CAMBIAR CONTRASEÑA
             composable(Routes.CHANGE_PASSWORD) {
                 ChangePasswordScreen(
                     viewModel = authViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
 
-            composable(Routes.API_CONFIG) {
-                ApiConfigScreen(
-                    viewModel = authViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(Routes.DASHBOARD) {
-                DashboardScreen(
-                    onNotificaciones = { navController.navigate(Routes.NOTIFICACIONES) },
-                    onVerAlerta = { id -> navController.navigate(Routes.detalleAlerta(id)) },
-                    onVerVentas = { navController.navigate(Routes.VENTAS) },
-                    onCerrarSesion = {
-                        authViewModel.logout()
-                        navController.navigate(Routes.LOGIN) {
-                            popUpTo(Routes.DASHBOARD) { inclusive = true }
-                        }
+                    onBack = {
+                        navController.popBackStack()
                     }
                 )
             }
 
+            // CONFIGURACIÓN DE API
+            composable(Routes.API_CONFIG) {
+                ApiConfigScreen(
+                    viewModel = authViewModel,
+
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            // DASHBOARD
+            composable(Routes.DASHBOARD) {
+                DashboardScreen(
+
+                    onNotificaciones = {
+                        navController.navigate(
+                            Routes.NOTIFICACIONES
+                        )
+                    },
+
+                    onVerAlerta = { id ->
+                        navController.navigate(
+                            Routes.detalleAlerta(id)
+                        )
+                    },
+
+                    onVerVentas = {
+                        navController.navigate(Routes.VENTAS)
+                    },
+
+                    onCerrarSesion = {
+                        // Bloquear nuevas consultas durante
+                        // el cierre de sesión.
+                        cerrandoSesion = true
+
+                        // Limpiar información de notificaciones.
+                        notificacionesViewModel.limpiarSesion()
+
+                        // Cerrar las acciones rápidas.
+                        showQuickActions = false
+
+                        // Mantener el cierre de sesión original.
+                        authViewModel.logout()
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(Routes.DASHBOARD) {
+                                inclusive = true
+                            }
+                        }
+                    },
+
+                    // Estado real de las notificaciones.
+                    notificacionesState = notificacionesState,
+                    onReintentarNotificaciones = {
+                        notificacionesViewModel.reintentar()
+                    }
+                )
+            }
+
+            // REGISTRAR VENTA
             composable(Routes.REGISTRAR_VENTA) {
                 RegistrarVentaScreen(
-                    onBack = { navController.popBackStack() },
-                    onGuardar = { navController.popBackStack() }
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    onGuardar = {
+                        navController.popBackStack()
+                    }
                 )
             }
 
+            // REGISTRAR GASTO
             composable(Routes.REGISTRAR_GASTO) {
                 RegistrarGastoScreen(
-                    onBack = { navController.popBackStack() },
-                    onGuardar = { navController.popBackStack() }
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    onGuardar = {
+                        navController.popBackStack()
+                    }
                 )
             }
 
-            //CLIENTES
+            // CLIENTES
             composable(Routes.CLIENTES) {
                 ClientesScreen(
-                    onBack = { navController.popBackStack() },
-                    onAgregar = { navController.navigate(Routes.AGREGAR_CLIENTE) },
-                    onVerDetalle = { id -> navController.navigate(Routes.detalleCliente(id)) }
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    onAgregar = {
+                        navController.navigate(
+                            Routes.AGREGAR_CLIENTE
+                        )
+                    },
+
+                    onVerDetalle = { id ->
+                        navController.navigate(
+                            Routes.detalleCliente(id)
+                        )
+                    }
                 )
             }
 
+            // AGREGAR CLIENTE
             composable(Routes.AGREGAR_CLIENTE) {
                 AgregarClienteScreen(
-                    onBack = { navController.popBackStack() },
-                    onGuardar = { navController.popBackStack() }
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    onGuardar = {
+                        navController.popBackStack()
+                    }
                 )
             }
 
-            composable("${Routes.EDITAR_CLIENTE}/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: return@composable
+            // EDITAR CLIENTE
+            composable(
+                "${Routes.EDITAR_CLIENTE}/{id}"
+            ) { backStackEntry ->
+
+                val id =
+                    backStackEntry.arguments?.getString("id")
+                        ?: return@composable
+
                 AgregarClienteScreen(
                     clienteId = id,
-                    onBack = { navController.popBackStack() },
-                    onGuardar = { navController.popBackStack() }
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    onGuardar = {
+                        navController.popBackStack()
+                    }
                 )
             }
 
-            composable("${Routes.DETALLE_CLIENTE}/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: return@composable
+            // DETALLE DE CLIENTE
+            composable(
+                "${Routes.DETALLE_CLIENTE}/{id}"
+            ) { backStackEntry ->
+
+                val id =
+                    backStackEntry.arguments?.getString("id")
+                        ?: return@composable
+
                 DetalleClienteScreen(
                     clienteId = id,
-                    onBack = { navController.popBackStack() },
-                    onEditar = { navController.navigate(Routes.editarCliente(id)) }
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    onEditar = {
+                        navController.navigate(
+                            Routes.editarCliente(id)
+                        )
+                    }
                 )
             }
 
-            //VENTAS
+            // VENTAS
             composable(Routes.VENTAS) {
                 VentasScreen(
-                    onBack = { navController.popBackStack() },
-                    onVerDetalle = { codigo -> navController.navigate(Routes.detalleVenta(codigo)) }
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    onVerDetalle = { codigo ->
+                        navController.navigate(
+                            Routes.detalleVenta(codigo)
+                        )
+                    }
                 )
             }
 
-            composable("${Routes.DETALLE_VENTA}/{codigo}") { backStackEntry ->
-                val codigo = backStackEntry.arguments?.getString("codigo") ?: "V-0245"
-                DetalleVentaScreen(onBack = { navController.popBackStack() })
+            // DETALLE DE VENTA
+            composable(
+                "${Routes.DETALLE_VENTA}/{codigo}"
+            ) { backStackEntry ->
+
+                val codigo =
+                    backStackEntry.arguments
+                        ?.getString("codigo") ?: "V-0245"
+
+                DetalleVentaScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
             }
 
+            // INVENTARIO
             composable(Routes.INVENTARIO) {
-                InventarioScreen(onBack = { navController.popBackStack() })
+                InventarioScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
             }
 
+            // NOTIFICACIONES
             composable(Routes.NOTIFICACIONES) {
                 NotificacionesScreen(
-                    onBack = { navController.popBackStack() },
-                    onVerDetalle = { id -> navController.navigate(Routes.detalleAlerta(id)) }
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onVerDetalle = { id ->
+                        navController.navigate(
+                            Routes.detalleAlerta(id)
+                        )
+                    },
+                    // Estado compartido con el Dashboard.
+                    uiState = notificacionesState,
+                    // Cambiar el filtro seleccionado.
+                    onFiltroChange = { filtro ->
+                        notificacionesViewModel
+                            .onFiltroChange(filtro)
+                    },
+                    // Actualización manual.
+                    onActualizar = {
+                        notificacionesViewModel.actualizar()
+                    },
+                    // Reintentar si ocurre un error.
+                    onReintentar = {
+                        notificacionesViewModel.reintentar()
+                    }
                 )
             }
 
-            composable("${Routes.DETALLE_ALERTA}/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: "N-0087"
+            // DETALLE DE ALERTA
+            composable(
+                "${Routes.DETALLE_ALERTA}/{id}"
+            ) { backStackEntry ->
+
+                // Obtener el identificador real.
+                val id =
+                    backStackEntry.arguments
+                        ?.getString("id") ?: ""
+
                 DetalleAlertaScreen(
-                    onBack = { navController.popBackStack() },
-                    onVerVenta = {
-                        navController.navigate(Routes.detalleVenta("V-0241"))
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    alertaId = id,
+
+                    // Utilizar el mismo estado compartido.
+                    uiState = notificacionesState,
+
+                    onReintentar = {
+                        notificacionesViewModel.reintentar()
                     }
                 )
             }
         }
 
+        // BARRA DE NAVEGACIÓN INFERIOR
         if (currentRoute in bottomBarRoutes) {
             FloatingBottomBar(
                 currentRoute = currentRoute,
                 onNavigate = { route ->
                     if (route != currentRoute) {
                         navController.navigate(route) {
-                            popUpTo(Routes.DASHBOARD) { saveState = true }
+                            popUpTo(Routes.DASHBOARD) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }
                     }
                 },
-                onAddClick = { showQuickActions = true },
-                modifier = Modifier.align(Alignment.BottomCenter)
+
+                onAddClick = {
+                    showQuickActions = true
+                },
+
+                modifier = Modifier.align(
+                    Alignment.BottomCenter
+                )
             )
         }
 
+        // ACCIONES RÁPIDAS
         if (showQuickActions) {
             QuickActionSheet(
-                onDismiss = { showQuickActions = false },
+
+                onDismiss = {
+                    showQuickActions = false
+                },
+
                 onRegistrarVenta = {
                     showQuickActions = false
-                    navController.navigate(Routes.REGISTRAR_VENTA)
+
+                    navController.navigate(
+                        Routes.REGISTRAR_VENTA
+                    )
                 },
                 onRegistrarGasto = {
                     showQuickActions = false
-                    navController.navigate(Routes.REGISTRAR_GASTO)
+                    navController.navigate(
+                        Routes.REGISTRAR_GASTO
+                    )
                 }
             )
         }

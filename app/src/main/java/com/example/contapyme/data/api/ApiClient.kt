@@ -93,6 +93,9 @@ object ApiClient {
         return getRetrofit(context).create(ClienteApi::class.java)
     }
 
+    fun getNotificacionesApi(context: Context): NotificacionesApi =
+        getRetrofit(context).create(NotificacionesApi::class.java)
+
     @Synchronized
     fun reset() {
         retrofit = null
