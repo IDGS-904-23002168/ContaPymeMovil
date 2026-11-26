@@ -1,0 +1,63 @@
+En este sistema, el control de acceso se gestiona mediante una arquitectura de dos capas (Frontend y Backend), pero la seguridad real e infranqueable está en la API (Backend).
+
+Aquí tienes la explicación clara y concisa de cómo funciona:
+
+1. La base: ¿Dónde se guardan los permisos? (Base de Datos)
+
+En la tabla roles, cada rol tiene una columna llamada permisos que almacena un array JSON con strings que representan los módulos a los que tiene acceso, por ejemplo: ["ventas", "compras", "cxc", "inventario"].
+
+2. En el Backend (La API): Control por Middleware (Ruta por Ruta)
+
+Toda la lógica de seguridad reside en el middleware server/middleware/auth.js:
+
+verifyToken (Identificación en cada petición):
+
+El cliente envía su JWT (Authorization: Bearer <TOKEN>).
+El backend consulta la base de datos en tiempo real para verificar que el usuario, su rol y su empresa sigan activos.
+Parsea el JSON de permisos del rol y lo adjunta a la petición: req.user.permisos = [...].
+
+requirePermission(permiso) (El guardia de cada módulo):
+
+Se coloca al inicio de cada archivo de rutas (ej. en ventaRoutes.js, compraRoutes.js, cajaRoutes.js, etc.):
+javascript
+router.use(verifyToken);
+router.use(requirePermission('compras')); // <--- Aquí se bloquea
+¿Cómo evalúa?:
+Si el rol del usuario es 'Administrador', tiene acceso total automático (return next()).
+Si no es admin, verifica si el array req.user.permisos contiene el string solicitado (ej. 'compras').
+Si lo tiene, le permite continuar (next()).
+Si no lo tiene, interrumpe la petición inmediatamente con:
+json
+{
+  "success": false,
+  "message": "Acceso denegado: se requiere el permiso 'compras'"
+}
+(HTTP Status 403 Forbidden).
+
+requireAdmin:
+
+Usado en rutas críticas de administración (como /api/users, /api/roles, o para crear/eliminar en /api/productos), donde se exige estrictamente que req.user.rol_nombre === 'Administrador'.
+3. En el Frontend (La Interfaz de Usuario)
+
+El Frontend no es la seguridad, sino una capa de experiencia de usuario para no mostrar opciones que el usuario no puede usar:
+
+Al iniciar sesión (POST /api/auth/login), el backend devuelve el objeto user con su lista de permisos y rol_nombre.
+El frontend guarda este usuario en el localStorage o estado global (AuthContext).
+En la barra lateral / menú de navegación (Sidebar o App.jsx), se condiciona la vista:
+Solo se renderizan los botones o pestañas de los módulos que están incluidos en user.permisos (o si es Administrador).
+Si un usuario malintencionado intenta entrar a una pantalla por código o URL, en cuanto el componente intente hacer fetch('/api/...'), la API lo rebotará con un error 403.
+Resumen gráfico del flujo
+text
+[Petición Cliente] 
+       │
+       ▼
+[verifyToken] ────> ¿Token válido, usuario y rol activos? ──(NO)──> 401 Unauthorized
+       │ (SÍ)
+       ▼ Extrae: req.user.permisos = ["ventas", "cxc"]
+[requirePermission('compras')]
+       │
+       ├─► ¿Es "Administrador"? ──(SÍ)──► Pasa al Controlador ✔
+       │
+       ├─► ¿Tiene 'compras' en permisos? ──(SÍ)──► Pasa al Controlador ✔
+       │
+       └─► (NO) ──► Retorna 403 Forbidden (Bloqueado) ✖

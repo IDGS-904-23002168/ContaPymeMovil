@@ -8,6 +8,7 @@ import com.example.contapyme.data.model.ForgotPasswordRequest
 import com.example.contapyme.data.model.ForgotPasswordResponse
 import com.example.contapyme.data.model.LoginRequest
 import com.example.contapyme.data.model.LoginResponse
+import com.example.contapyme.data.model.LogoutResponse
 import com.example.contapyme.data.model.MeResponse
 import com.example.contapyme.data.model.Resend2FARequest
 import com.example.contapyme.data.model.Resend2FAResponse
@@ -113,6 +114,21 @@ class AuthRepository(private val context: Context) {
             } else {
                 val errorBody = response.errorBody()?.string()
                 Result.success(MeResponse(success = false, message = parseErrorMessage(errorBody, response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun logout(token: String? = null): Result<LogoutResponse> = withContext(Dispatchers.IO) {
+        try {
+            val authHeader = if (!token.isNullOrEmpty()) "Bearer $token" else null
+            val response = authApi().logout(authHeader)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.success(LogoutResponse(success = false, message = parseErrorMessage(errorBody, response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)

@@ -6,6 +6,7 @@ import com.example.contapyme.data.model.ForgotPasswordRequest
 import com.example.contapyme.data.model.ForgotPasswordResponse
 import com.example.contapyme.data.model.LoginRequest
 import com.example.contapyme.data.model.LoginResponse
+import com.example.contapyme.data.model.LogoutResponse
 import com.example.contapyme.data.model.MeResponse
 import com.example.contapyme.data.model.Resend2FARequest
 import com.example.contapyme.data.model.Resend2FAResponse
@@ -43,4 +44,9 @@ interface AuthApi {
 
     @GET("auth/me")
     suspend fun getMe(@Header("Authorization") authorization: String): Response<MeResponse>
+
+    @POST("auth/logout")
+    suspend fun logout(
+        @Header("Authorization") authorization: String? = null
+    ): Response<LogoutResponse>
 }

@@ -30,9 +30,12 @@ import com.example.contapyme.ui.components.FloatingBottomBar
 import com.example.contapyme.ui.components.QuickActionSheet
 import com.example.contapyme.ui.screens.AgregarClienteScreen
 import com.example.contapyme.ui.screens.clientes.ClientesScreen
+import com.example.contapyme.ui.screens.ClientesScreen
+import com.example.contapyme.ui.screens.ComprasScreen
 import com.example.contapyme.ui.screens.DashboardScreen
 import com.example.contapyme.ui.screens.DetalleAlertaScreen
 import com.example.contapyme.ui.screens.DetalleClienteScreen
+import com.example.contapyme.ui.screens.DetalleCompraScreen
 import com.example.contapyme.ui.screens.DetalleVentaScreen
 import com.example.contapyme.ui.screens.InicioScreen
 import com.example.contapyme.ui.screens.InventarioScreen
@@ -69,7 +72,8 @@ private val bottomBarRoutes = setOf(
     Routes.DASHBOARD,
     Routes.INVENTARIO,
     Routes.CLIENTES,
-    Routes.VENTAS
+    Routes.VENTAS,
+    Routes.COMPRAS
 )
 
 @Composable
@@ -88,6 +92,17 @@ fun AppNavHost() {
 
     // ViewModel original de autenticación.
     val authViewModel: AuthViewModel = viewModel()
+    val uiState by authViewModel.uiState.collectAsState()
+
+    // Observar estado de sesión global: si se cierra sesión y no estamos en una pantalla pública, salir al Login
+    androidx.compose.runtime.LaunchedEffect(uiState.isLoggedIn) {
+        if (!uiState.isLoggedIn && currentRoute != null && currentRoute != Routes.LOGIN && currentRoute != Routes.TWO_FA && currentRoute != Routes.FORGOT_PASSWORD && !currentRoute.startsWith(Routes.RESET_PASSWORD) && currentRoute != Routes.API_CONFIG) {
+            navController.navigate(Routes.LOGIN) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     // ViewModel compartido del módulo de notificaciones.
     val notificacionesViewModel: NotificacionesViewModel =
@@ -360,8 +375,33 @@ fun AppNavHost() {
             composable(Routes.CHANGE_PASSWORD) {
                 ChangePasswordScreen(
                     viewModel = authViewModel,
-                    onBack = {
-                        navController.popBackStack()
+
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.API_CONFIG) {
+                ApiConfigScreen(
+                    viewModel = authViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.DASHBOARD) {
+                DashboardScreen(
+                    userName = uiState.userName ?: "Usuario",
+                    userEmail = uiState.userEmail,
+                    rolName = uiState.rolName,
+                    onNotificaciones = { navController.navigate(Routes.NOTIFICACIONES) },
+                    onVerAlerta = { id -> navController.navigate(Routes.detalleAlerta(id)) },
+                    onVerVentas = { navController.navigate(Routes.VENTAS) },
+                    onCerrarSesion = {
+                        authViewModel.logout {
+                            navController.navigate(Routes.LOGIN) {
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
                     }
                 )
             }
@@ -422,13 +462,13 @@ fun AppNavHost() {
             // REGISTRAR VENTA
             composable(Routes.REGISTRAR_VENTA) {
                 RegistrarVentaScreen(
-
-                    onBack = {
-                        navController.popBackStack()
-                    },
-
+                    onBack = { navController.popBackStack() },
                     onGuardar = {
-                        navController.popBackStack()
+                        navController.navigate(Routes.VENTAS) {
+                            popUpTo(Routes.DASHBOARD)
+                            launchSingleTop = true
+                        }
+
                     }
                 )
             }
@@ -483,34 +523,38 @@ fun AppNavHost() {
             composable(Routes.AGREGAR_CLIENTE) {
                 AgregarClienteScreen(
 
-                    onBack = {
-                        navController.popBackStack()
-                    },
-
+                    onBack = { navController.popBackStack() },
                     onGuardar = {
-                        navController.popBackStack()
+                        navController.navigate(Routes.CLIENTES) {
+                            popUpTo(Routes.CLIENTES) { inclusive = true }
+                            launchSingleTop = true
+                        }
+
                     }
                 )
             }
 
-            // EDITAR CLIENTE
-            composable(
-                "${Routes.EDITAR_CLIENTE}/{id}"
-            ) { backStackEntry ->
 
-                val id =
-                    backStackEntry.arguments?.getString("id")
-                        ?: return@composable
+            composable("${Routes.DETALLE_CLIENTE}/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id").orEmpty()
+                DetalleClienteScreen(
+                    id = id,
+                    onBack = { navController.popBackStack() },
+                    onEditar = { clienteId -> navController.navigate(Routes.editarCliente(clienteId)) },
+                    onVerVenta = { codigo -> navController.navigate(Routes.detalleVenta(codigo)) }
+                )
+            }
 
+            composable("${Routes.EDITAR_CLIENTE}/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id").orEmpty()
                 AgregarClienteScreen(
                     clienteId = id,
-
-                    onBack = {
-                        navController.popBackStack()
-                    },
-
+                    onBack = { navController.popBackStack() },
                     onGuardar = {
-                        navController.popBackStack()
+                        navController.navigate(Routes.CLIENTES) {
+                            popUpTo(Routes.CLIENTES) { inclusive = true }
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
@@ -555,19 +599,27 @@ fun AppNavHost() {
                 )
             }
 
-            // DETALLE DE VENTA
-            composable(
-                "${Routes.DETALLE_VENTA}/{codigo}"
-            ) { backStackEntry ->
 
-                val codigo =
-                    backStackEntry.arguments
-                        ?.getString("codigo") ?: "V-0245"
-
+            composable("${Routes.DETALLE_VENTA}/{codigo}") { backStackEntry ->
+                val codigo = backStackEntry.arguments?.getString("codigo").orEmpty()
                 DetalleVentaScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    }
+                    id = codigo,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Routes.COMPRAS) {
+                ComprasScreen(
+                    onBack = { navController.popBackStack() },
+                    onVerDetalle = { codigo -> navController.navigate(Routes.detalleCompra(codigo)) }
+                )
+            }
+
+            composable("${Routes.DETALLE_COMPRA}/{codigo}") { backStackEntry ->
+                val codigo = backStackEntry.arguments?.getString("codigo").orEmpty()
+                DetalleCompraScreen(
+                    id = codigo,
+                    onBack = { navController.popBackStack() }
                 )
             }
 
@@ -680,9 +732,11 @@ fun AppNavHost() {
                 },
                 onRegistrarGasto = {
                     showQuickActions = false
-                    navController.navigate(
-                        Routes.REGISTRAR_GASTO
-                    )
+                    navController.navigate(Routes.REGISTRAR_GASTO)
+                },
+                onConsultarCompras = {
+                    showQuickActions = false
+                    navController.navigate(Routes.COMPRAS)
                 }
             )
         }

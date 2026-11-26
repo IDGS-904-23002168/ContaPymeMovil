@@ -15,6 +15,14 @@ data class LoginResponse(
     val message: String? = null,
     val tempToken: String? = null,
     val emailMasked: String? = null,
+    val token: String? = null,
+    val user: UserDto? = null,
+    val code: String? = null
+)
+
+data class LogoutResponse(
+    val success: Boolean = false,
+    val message: String? = null,
     val code: String? = null
 )
 
@@ -104,7 +112,26 @@ data class UserDto(
     val rolNombre: String? = null,
     val estatus: Int = 1,
     val permisos: List<String> = emptyList()
-)
+) {
+    val displayName: String
+        get() = when {
+            !nombreCompleto.isNullOrBlank() -> nombreCompleto
+            !nombre.isNullOrBlank() -> listOfNotNull(nombre, apellidoPaterno).filter { it.isNotBlank() }.joinToString(" ")
+            !nombreUsuario.isNullOrBlank() -> nombreUsuario
+            else -> "Usuario"
+        }
+
+    val initials: String
+        get() {
+            val name = displayName.trim()
+            val parts = name.split(" ").filter { it.isNotBlank() }
+            return when {
+                parts.size >= 2 -> "${parts[0].first().uppercaseChar()}${parts[1].first().uppercaseChar()}"
+                parts.isNotEmpty() && parts[0].isNotEmpty() -> parts[0].take(2).uppercase()
+                else -> "U"
+            }
+        }
+}
 
 data class ApiErrorResponse(
     val success: Boolean = false,

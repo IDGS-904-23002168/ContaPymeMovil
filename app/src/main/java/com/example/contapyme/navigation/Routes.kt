@@ -36,6 +36,9 @@ object Routes {
     const val DETALLE_CLIENTE = "detalle_cliente"
 
     // Inventario
+    const val COMPRAS = "compras"
+    const val DETALLE_COMPRA = "detalle_compra"
+    const val EDITAR_CLIENTE = "editar_cliente"
     const val INVENTARIO = "inventario"
 
     // Notificaciones
@@ -50,6 +53,7 @@ object Routes {
     fun detalleGasto(id: String) = "$DETALLE_GASTO/$id"
     fun detalleMovimientoCaja(id: String) = "$DETALLE_MOVIMIENTO_CAJA/$id"
     fun detalleCuentaCobrar(id: String) = "$DETALLE_CUENTA_COBRAR/$id"
+    fun detalleCompra(codigo: String) = "$DETALLE_COMPRA/$codigo"
     fun detalleAlerta(id: String) = "$DETALLE_ALERTA/$id"
 
 

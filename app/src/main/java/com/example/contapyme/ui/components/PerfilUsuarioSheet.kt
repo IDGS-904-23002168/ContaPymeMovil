@@ -61,6 +61,10 @@ private val OverlayColor = Color(0xFF070E2C).copy(alpha = 0.75f)
  */
 @Composable
 fun PerfilUsuarioSheet(
+    userName: String = "Usuario",
+    userEmail: String? = null,
+    rolName: String? = null,
+    userInitials: String = "U",
     onDismiss: () -> Unit,
     onSolicitarCerrarSesion: () -> Unit
 ) {
@@ -160,7 +164,7 @@ fun PerfilUsuarioSheet(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "LM",
+                                text = userInitials,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 22.sp
@@ -185,7 +189,7 @@ fun PerfilUsuarioSheet(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Laura Morales",
+                                text = userName,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TextDark
@@ -201,7 +205,7 @@ fun PerfilUsuarioSheet(
 
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            text = "laura.morales@contapyme.com",
+                            text = userEmail ?: "usuario@contapyme.com",
                             fontSize = 12.sp,
                             color = TextSecondary
                         )
@@ -216,7 +220,7 @@ fun PerfilUsuarioSheet(
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = "ADMINISTRADORA",
+                                text = (rolName ?: "Colaborador").uppercase(),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp,

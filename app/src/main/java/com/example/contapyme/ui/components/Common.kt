@@ -3,6 +3,8 @@ package com.example.contapyme.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -194,8 +196,15 @@ fun InfoBox(background: Color = Color(0xFFE8EEFC), text: @Composable () -> Unit)
 }
 
 @Composable
-fun FilterChipRow(chips: List<String>, selected: Int = 0) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+fun FilterChipRow(
+    chips: List<String>,
+    selected: Int = 0,
+    onSelect: (Int) -> Unit = {}
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.horizontalScroll(rememberScrollState())
+    ) {
         chips.forEachIndexed { index, chip ->
             val isSelected = index == selected
             Box(
@@ -205,7 +214,7 @@ fun FilterChipRow(chips: List<String>, selected: Int = 0) {
                     .then(
                         if (isSelected) Modifier else Modifier.border(1.dp, BorderSoft, RoundedCornerShape(10.dp))
                     )
-                    .clickable {}
+                    .clickable { onSelect(index) }
                     .padding(horizontal = 18.dp, vertical = 9.dp)
             ) {
                 Text(
@@ -254,7 +263,8 @@ fun BottomFooterButton(
     totalLabel: String,
     totalValue: String,
     buttonText: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = Modifier
@@ -267,7 +277,7 @@ fun BottomFooterButton(
             Text(text = totalLabel.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp, color = TextSecondary)
             Text(text = totalValue, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Navy)
         }
-        PrimaryButton(text = buttonText, onClick = onClick)
+        PrimaryButton(text = buttonText, onClick = onClick, enabled = enabled)
     }
 }
 

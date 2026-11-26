@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -36,7 +37,9 @@ import com.example.contapyme.ui.theme.Navy
 fun TopHeader(
     title: String,
     onBack: (() -> Unit)? = null,
-    stats: List<Pair<String, String>> = emptyList()
+    stats: List<Pair<String, String>> = emptyList(),
+    userName: String? = null,
+    onCerrarSesion: (() -> Unit)? = null
 ) {
     Column(
         modifier = Modifier
@@ -45,7 +48,10 @@ fun TopHeader(
             .padding(top = 48.dp, bottom = 20.dp)
             .padding(horizontal = 20.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             if (onBack != null) {
                 IconButton(
                     onClick = onBack,
@@ -66,8 +72,33 @@ fun TopHeader(
                 text = title,
                 color = Color.White,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
             )
+            if (userName != null) {
+                Text(
+                    text = userName,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
+            if (onCerrarSesion != null) {
+                IconButton(
+                    onClick = onCerrarSesion,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f))
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = "Cerrar sesión",
+                        tint = Color.White
+                    )
+                }
+            }
         }
         if (stats.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))

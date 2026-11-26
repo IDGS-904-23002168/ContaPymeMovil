@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -105,6 +106,14 @@ fun FloatingBottomBar(
                 selected = currentRoute == Routes.VENTAS ||
                         (currentRoute?.startsWith(Routes.DETALLE_VENTA) == true),
                 onClick = { onNavigate(Routes.VENTAS) },
+                iconSize = 24.dp
+            )
+            BottomBarItem(
+                icon = Icons.Filled.ShoppingBag,
+                contentDescription = "Compras",
+                selected = currentRoute == Routes.COMPRAS ||
+                        (currentRoute?.startsWith(Routes.DETALLE_COMPRA) == true),
+                onClick = { onNavigate(Routes.COMPRAS) },
                 iconSize = 24.dp
             )
         }

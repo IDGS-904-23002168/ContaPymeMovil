@@ -96,6 +96,7 @@ object ApiClient {
         return getRetrofit(context).create(AuthApi::class.java)
     }
 
+
     fun getClienteApi(context: Context): ClienteApi {
         return getRetrofit(context).create(ClienteApi::class.java)
     }
@@ -106,6 +107,22 @@ object ApiClient {
 
     fun getGastoApi(context: Context): GastoApi {
         return getRetrofit(context).create(GastoApi::class.java)
+
+    fun getProductosApi(context: Context): ProductosApi {
+        return getRetrofit(context).create(ProductosApi::class.java)
+    }
+
+    fun getClientesApi(context: Context): ClientesApi {
+        return getRetrofit(context).create(ClientesApi::class.java)
+    }
+
+    fun getVentasApi(context: Context): VentasApi {
+        return getRetrofit(context).create(VentasApi::class.java)
+    }
+
+    fun getComprasApi(context: Context): ComprasApi {
+        return getRetrofit(context).create(ComprasApi::class.java)
+
     }
 
     @Synchronized

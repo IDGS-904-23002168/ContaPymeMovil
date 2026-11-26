@@ -53,12 +53,23 @@ import com.example.contapyme.ui.theme.SuccessGreen
 import com.example.contapyme.ui.theme.TextSecondary
 import com.example.contapyme.ui.data.DashboardAlertItem
 import com.example.contapyme.ui.data.construirDashboardAlerts
+import com.example.contapyme.ui.data.dashboardAlerts
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.example.contapyme.ui.components.CerrarSesionConfirmDialog
 import com.example.contapyme.ui.components.PerfilUsuarioSheet
 import com.example.contapyme.ui.viewmodel.NotificacionesUiState
 
 @Composable
 fun DashboardScreen(
+    userName: String = "Usuario",
+    userEmail: String? = null,
+    rolName: String? = null,
     onNotificaciones: () -> Unit,
     onVerAlerta: (String) -> Unit,
     onVerVentas: () -> Unit,
@@ -83,6 +94,16 @@ fun DashboardScreen(
         construirDashboardAlerts(
             notificacionesState.notificaciones
         )
+    }
+
+    val userInitials = remember(userName) {
+        val trimmed = userName.trim()
+        val parts = trimmed.split(" ").filter { it.isNotBlank() }
+        when {
+            parts.size >= 2 -> "${parts[0].first().uppercaseChar()}${parts[1].first().uppercaseChar()}"
+            parts.isNotEmpty() && parts[0].isNotEmpty() -> parts[0].take(2).uppercase()
+            else -> "U"
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -133,6 +154,7 @@ fun DashboardScreen(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp
                                 )
+                                //Text(userInitials, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
 
                             // Indicador de conexión verde.
@@ -158,22 +180,18 @@ fun DashboardScreen(
                                 }
                         ) {
                             Text(
-                                "Viernes, 9 de octubre",
+                                text = rolName?.let { "ContaPyme • $it" } ?: "ContaPyme Móvil",
                                 color = Color.White.copy(alpha = 0.8f),
                                 fontSize = 12.sp
                             )
-
-                            Row(
-                                verticalAlignment =
-                                    Alignment.CenterVertically
-                            ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    "Hola, Laura",
+                                    text = "Hola, $userName",
                                     color = Color.White,
                                     fontSize = 19.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
                                 )
-
                                 Spacer(Modifier.width(4.dp))
 
                                 Icon(
@@ -428,6 +446,27 @@ fun DashboardScreen(
                             }
                         }
                     }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    // Botón de cerrar sesión rápido en el encabezado
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .shadow(4.dp, CircleShape)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.18f))
+                            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                            .clickable { mostrarConfirmacion = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Cerrar sesión",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
 
                 // Carga inicial de notificaciones.
@@ -539,18 +578,34 @@ fun DashboardScreen(
             )
         }
 
-        // Confirmación de cierre de sesión.
-        if (mostrarConfirmacion) {
-            CerrarSesionConfirmDialog(
-                onDismiss = {
-                    mostrarConfirmacion = false
-                },
-                onConfirmar = {
-                    mostrarConfirmacion = false
-                    onCerrarSesion()
-                }
-            )
-        }
+
+        item { Spacer(Modifier.height(8.dp)) }
+        item { Spacer(Modifier.height(70.dp)) }
+    }
+
+    if (mostrarPerfilSheet) {
+        PerfilUsuarioSheet(
+            userName = userName,
+            userEmail = userEmail,
+            rolName = rolName,
+            userInitials = userInitials,
+            onDismiss = { mostrarPerfilSheet = false },
+            onSolicitarCerrarSesion = {
+                mostrarPerfilSheet = false
+                mostrarConfirmacion = true
+            }
+        )
+    }
+
+    if (mostrarConfirmacion) {
+        CerrarSesionConfirmDialog(
+            onDismiss = { mostrarConfirmacion = false },
+            onConfirmar = {
+                mostrarConfirmacion = false
+                onCerrarSesion()
+            }
+        )
+    }
     }
 }
 

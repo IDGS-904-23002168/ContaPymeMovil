@@ -21,9 +21,13 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,24 +37,35 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.contapyme.data.SampleData
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.contapyme.data.model.VentaDto
+import com.example.contapyme.data.model.formatearDinero
+import com.example.contapyme.data.model.formatearFecha
+import com.example.contapyme.ui.components.EstadoChip
 import com.example.contapyme.ui.components.InfoBox
 import com.example.contapyme.ui.components.NumberedSectionHeader
 import com.example.contapyme.ui.components.SectionCard
 import com.example.contapyme.ui.components.SpacerH12
-import com.example.contapyme.ui.components.StatusChip
+import com.example.contapyme.ui.theme.BluePrimary
 import com.example.contapyme.ui.theme.BlueSoft
 import com.example.contapyme.ui.theme.BorderSoft
-import com.example.contapyme.ui.theme.BluePrimary
+import com.example.contapyme.ui.theme.ErrorRed
 import com.example.contapyme.ui.theme.GradientEnd
 import com.example.contapyme.ui.theme.GradientStart
 import com.example.contapyme.ui.theme.Navy
 import com.example.contapyme.ui.theme.TextSecondary
-import com.example.contapyme.ui.theme.WarningAmber
-import com.example.contapyme.ui.theme.WarningAmberBg
+import com.example.contapyme.ui.viewmodel.VentaDetalleViewModel
 
 @Composable
-fun DetalleVentaScreen(onBack: () -> Unit) {
+fun DetalleVentaScreen(
+    id: String,
+    onBack: () -> Unit,
+    viewModel: VentaDetalleViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(id) { viewModel.cargar(id) }
+
     Column(Modifier.fillMaxSize().background(Color(0xFFF4F6FB))) {
         Column(
             modifier = Modifier
@@ -82,131 +97,140 @@ fun DetalleVentaScreen(onBack: () -> Unit) {
                     .padding(vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Meta("CÓDIGO DE VENTA", "V-0245")
-                Meta("FECHA", "9 oct 2026")
-                Meta("VENDEDOR", "Laura M.")
+                Meta("CÓDIGO DE VENTA", uiState.venta?.displayCodigo ?: "—")
+                Meta("FECHA", formatearFecha(uiState.venta?.fecha))
+                Meta("VENDEDOR", uiState.venta?.displayVendedor ?: "—")
             }
         }
 
-        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            item {
-                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberedSectionHeader(1, "Cliente")
-                    SectionCard {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(BlueSoft),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Filled.Person, contentDescription = null, tint = BluePrimary)
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text("CLIENTE", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, color = TextSecondary)
-                                Text("María Fernanda López Soto", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Navy)
-                            }
+        when {
+            uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Navy)
+            }
+
+            uiState.error != null || uiState.venta == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    uiState.error ?: "No se encontró la venta.",
+                    color = ErrorRed,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(24.dp)
+                )
+            }
+
+            else -> DetalleVentaContent(venta = uiState.venta!!)
+        }
+    }
+}
+
+@Composable
+private fun DetalleVentaContent(venta: VentaDto) {
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberedSectionHeader(1, "Cliente")
+                SectionCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(BlueSoft),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Person, contentDescription = null, tint = BluePrimary)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text("CLIENTE", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, color = TextSecondary)
+                            Text(venta.displayCliente, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Navy)
                         }
                     }
                 }
             }
+        }
 
-            item {
-                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberedSectionHeader(2, "Productos", trailing = "3 productos")
-                    SectionCard {
-                        SampleData.ventaDetalle.productos.forEachIndexed { index, item ->
-                            if (index > 0) {
-                                Spacer(Modifier.height(10.dp))
-                                Box(Modifier.fillMaxWidth().height(1.dp).background(BorderSoft))
-                                Spacer(Modifier.height(10.dp))
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(item.producto, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Navy)
-                                    Text(
-                                        "${item.codigo} · ${item.cantidad} × $${"%,.2f".format(item.precioUnitario)}",
-                                        fontSize = 11.sp,
-                                        color = TextSecondary
-                                    )
-                                }
+        item {
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberedSectionHeader(2, "Productos", trailing = "${venta.itemsSeguros.size} productos")
+                SectionCard {
+                    if (venta.itemsSeguros.isEmpty()) {
+                        Text("Sin productos registrados.", color = TextSecondary, fontSize = 12.sp)
+                    }
+                    venta.itemsSeguros.forEachIndexed { index, item ->
+                        if (index > 0) {
+                            Spacer(Modifier.height(10.dp))
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(BorderSoft))
+                            Spacer(Modifier.height(10.dp))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(item.displayNombre, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Navy)
                                 Text(
-                                    "$" + "%,.2f".format(item.precioUnitario * item.cantidad),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Navy
+                                    "${item.displayCodigo} · ${item.cantidad.toInt()} × ${formatearDinero(item.precioUnitario)}",
+                                    fontSize = 11.sp,
+                                    color = TextSecondary
                                 )
                             }
+                            Text(formatearDinero(item.importe), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Navy)
                         }
                     }
                 }
             }
+        }
 
-            item {
-                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberedSectionHeader(3, "Pago")
-                    SectionCard {
-                        InfoLine(Icons.Filled.CreditCard, "FORMA DE PAGO", "Efectivo")
-                        Spacer(Modifier.height(10.dp))
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(BorderSoft))
-                        Spacer(Modifier.height(10.dp))
-                        InfoLine(Icons.Filled.Schedule, "CONDICIONES", "Crédito")
-                        Spacer(Modifier.height(10.dp))
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(BorderSoft))
-                        Spacer(Modifier.height(10.dp))
-                        InfoLine(Icons.Filled.CalendarToday, "VENCE", "30 oct 2026")
-                    }
+        item {
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberedSectionHeader(3, "Pago")
+                SectionCard {
+                    InfoLine(Icons.Filled.CreditCard, "FORMA DE PAGO", venta.formaPago?.replaceFirstChar { it.uppercase() } ?: "—")
+                    Spacer(Modifier.height(10.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(BorderSoft))
+                    Spacer(Modifier.height(10.dp))
+                    InfoLine(Icons.Filled.Schedule, "CONDICIONES", venta.condicionesPago?.replaceFirstChar { it.uppercase() } ?: "—")
+                    Spacer(Modifier.height(10.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(BorderSoft))
+                    Spacer(Modifier.height(10.dp))
+                    InfoLine(Icons.Filled.CalendarToday, "VENCE", formatearFecha(venta.fechaVencimiento))
                 }
             }
+        }
 
-            item {
-                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item {
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    NumberedSectionHeader(4, "Resumen")
+                    Spacer(Modifier.width(8.dp))
+                    EstadoChip(venta.estadoLabel)
+                }
+                SectionCard {
+                    ResumenRow("Subtotal", formatearDinero(venta.subtotal))
+                    SpacerH12()
+                    ResumenRow("Monto pagado", formatearDinero(venta.montoPagado))
+                    SpacerH12()
+                    ResumenRow("Saldo pendiente", formatearDinero(venta.saldoPendiente), bold = true)
+                    Spacer(Modifier.height(10.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(BorderSoft))
+                    Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        NumberedSectionHeader(4, "Resumen")
-                        Spacer(Modifier.width(8.dp))
-                        StatusChip("Pago parcial", WarningAmberBg, WarningAmber)
+                        Text("Total", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Navy)
+                        Spacer(Modifier.weight(1f))
+                        Text(formatearDinero(venta.total), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Navy)
                     }
-                    SectionCard {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Subtotal", fontSize = 13.sp, color = TextSecondary)
-                            Spacer(Modifier.weight(1f))
-                            Text("$16,496.00", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Navy)
-                        }
-                        SpacerH12()
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Monto pagado", fontSize = 13.sp, color = TextSecondary)
-                            Spacer(Modifier.weight(1f))
-                            Text("$6,000.00", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Navy)
-                        }
-                        SpacerH12()
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Saldo pendiente", fontSize = 13.sp, color = TextSecondary)
-                            Spacer(Modifier.weight(1f))
-                            Text("$10,496.00", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Navy)
-                        }
+                    if (!venta.observaciones.isNullOrBlank()) {
                         Spacer(Modifier.height(10.dp))
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(BorderSoft))
-                        Spacer(Modifier.height(10.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Total", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Navy)
-                            Spacer(Modifier.weight(1f))
-                            Text("$16,496.00", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Navy)
-                        }
+                        Text("Observaciones: ${venta.observaciones}", fontSize = 11.sp, color = TextSecondary)
                     }
+                }
+                if (venta.saldoPendiente > 0) {
                     InfoBox {
                         Text(
-                            "Esta venta generó una cuenta por cobrar de \$10,496.00 y descontó el inventario.",
+                            "Esta venta tiene un saldo pendiente de ${formatearDinero(venta.saldoPendiente)}.",
                             fontSize = 12.sp,
                             color = TextSecondary
                         )
                     }
                 }
             }
-
-            item { Spacer(Modifier.height(40.dp)) }
         }
+
+        item { Spacer(Modifier.height(40.dp)) }
     }
 }
 
@@ -223,10 +247,7 @@ private fun Meta(label: String, value: String) {
 private fun InfoLine(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(BlueSoft),
+            modifier = Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(BlueSoft),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, contentDescription = null, tint = BluePrimary, modifier = Modifier.size(18.dp))
@@ -236,5 +257,14 @@ private fun InfoLine(icon: ImageVector, label: String, value: String) {
             Text(label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, color = TextSecondary)
             Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Navy)
         }
+    }
+}
+
+@Composable
+private fun ResumenRow(label: String, value: String, bold: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, fontSize = 13.sp, color = if (bold) Navy else TextSecondary, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
+        Spacer(Modifier.weight(1f))
+        Text(value, fontSize = 14.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold, color = Navy)
     }
 }

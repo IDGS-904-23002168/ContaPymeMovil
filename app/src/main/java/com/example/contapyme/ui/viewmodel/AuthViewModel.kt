@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.contapyme.data.api.ApiClient
 import com.example.contapyme.data.local.SessionManager
+import com.example.contapyme.data.model.UserDto
 import com.example.contapyme.data.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +21,11 @@ data class AuthUiState(
     val emailMasked: String? = null,
     val sessionToken: String? = null,
     val isLoggedIn: Boolean = false,
-    val requires2FA: Boolean = false
+    val requires2FA: Boolean = false,
+    val currentUser: UserDto? = null,
+    val userName: String? = null,
+    val userEmail: String? = null,
+    val rolName: String? = null
 )
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -32,13 +37,49 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     
     val apiOrigin = sessionManager.apiOrigin
     val tokenFlow = sessionManager.token
+    val userNameFlow = sessionManager.userName
 
     init {
         viewModelScope.launch {
             val token = sessionManager.token.first()
+            val name = sessionManager.userName.first()
+            val email = sessionManager.userEmail.first()
+            val rol = sessionManager.rolName.first()
             if (!token.isNullOrEmpty()) {
-                _uiState.value = _uiState.value.copy(sessionToken = token, isLoggedIn = true)
+                _uiState.value = _uiState.value.copy(
+                    sessionToken = token,
+                    isLoggedIn = true,
+                    userName = name ?: "Usuario",
+                    userEmail = email,
+                    rolName = rol
+                )
+                refreshUserProfile(token)
             }
+        }
+    }
+
+    fun refreshUserProfile(token: String? = null) {
+        val targetToken = token ?: _uiState.value.sessionToken ?: return
+        viewModelScope.launch {
+            repository.getMe(targetToken)
+                .onSuccess { response ->
+                    if (response.success && response.user != null) {
+                        val user = response.user
+                        val displayName = user.displayName
+                        sessionManager.saveSession(
+                            token = targetToken,
+                            userName = displayName,
+                            email = user.correo,
+                            rolName = user.rolNombre
+                        )
+                        _uiState.value = _uiState.value.copy(
+                            currentUser = user,
+                            userName = displayName,
+                            userEmail = user.correo,
+                            rolName = user.rolNombre
+                        )
+                    }
+                }
         }
     }
 
@@ -67,6 +108,27 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                             emailMasked = response.emailMasked,
                             message = response.message
                         )
+                    } else if (response.success && !response.token.isNullOrEmpty()) {
+                        val token = response.token
+                        val user = response.user
+                        val displayName = user?.displayName ?: nombreUsuario
+                        sessionManager.saveSession(
+                            token = token,
+                            userName = displayName,
+                            email = user?.correo,
+                            rolName = user?.rolNombre
+                        )
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            sessionToken = token,
+                            isLoggedIn = true,
+                            currentUser = user,
+                            userName = displayName,
+                            userEmail = user?.correo,
+                            rolName = user?.rolNombre,
+                            message = response.message
+                        )
+                        refreshUserProfile(token)
                     } else {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
@@ -101,11 +163,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess { response ->
                     if (response.success && response.token != null) {
                         val token = response.token
+                        val user = response.user
+                        val displayName = user?.displayName ?: "Usuario"
                         sessionManager.saveSession(
                             token = token,
-                            userName = response.user?.nombreUsuario,
-                            email = response.user?.correo,
-                            rolName = response.user?.rolNombre
+                            userName = displayName,
+                            email = user?.correo,
+                            rolName = user?.rolNombre
                         )
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
@@ -113,8 +177,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                             isLoggedIn = true,
                             requires2FA = false,
                             tempToken = null,
+                            currentUser = user,
+                            userName = displayName,
+                            userEmail = user?.correo,
+                            rolName = user?.rolNombre,
                             message = response.message
                         )
+                        refreshUserProfile(token)
                     } else {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
@@ -247,11 +316,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun logout() {
+    fun logout(onComplete: (() -> Unit)? = null) {
+        val token = _uiState.value.sessionToken
+        // Inmediatamente marcamos la sesión local como cerrada para que la UI reaccione al instante
+        _uiState.value = AuthUiState()
+        ApiClient.reset()
+        onComplete?.invoke()
+
         viewModelScope.launch {
-            sessionManager.clearSession()
-            _uiState.value = AuthUiState()
-            ApiClient.reset()
+            try {
+                // Notificar a la API para asentar en bitácora (POST /api/auth/logout)
+                repository.logout(token)
+            } catch (_: Exception) {
+                // Si la red falla, la sesión ya fue destruida localmente
+            } finally {
+                sessionManager.clearSession()
+            }
         }
     }
 

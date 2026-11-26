@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -48,7 +49,8 @@ private val TextoGris = Color(0xFF6B7280)
 fun QuickActionSheet(
     onDismiss: () -> Unit,
     onRegistrarVenta: () -> Unit,
-    onRegistrarGasto: () -> Unit
+    onRegistrarGasto: () -> Unit,
+    onConsultarCompras: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -95,6 +97,14 @@ fun QuickActionSheet(
                 titulo = "Registrar gasto",
                 subtitulo = "Concepto, categoría y monto",
                 onClick = onRegistrarGasto
+            )
+
+            QuickActionCard(
+                destacada = false,
+                icono = Icons.Filled.ShoppingBag,
+                titulo = "Consultar compras",
+                subtitulo = "Folios, proveedores y montos (solo lectura)",
+                onClick = onConsultarCompras
             )
 
             Spacer(Modifier.height(8.dp))
