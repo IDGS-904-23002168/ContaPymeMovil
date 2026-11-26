@@ -62,6 +62,7 @@ fun DashboardScreen(
     onNotificaciones: () -> Unit,
     onVerAlerta: (String) -> Unit,
     onVerVentas: () -> Unit,
+    onVerGastos: () -> Unit,
     onCerrarSesion: () -> Unit,
     notificacionesState: NotificacionesUiState =
         NotificacionesUiState(),
@@ -306,7 +307,9 @@ fun DashboardScreen(
                             badgeColor = TextSecondary,
                             label = "Gastos del mes",
                             value = "$64,200",
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(onClick = onVerGastos)
                         )
                     }
 

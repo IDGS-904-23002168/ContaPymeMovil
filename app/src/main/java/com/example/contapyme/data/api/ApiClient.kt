@@ -15,7 +15,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-/** Avisa a la app cuando el servidor responde 401 (token vencido o usuario desactivado). */
+/** Avisa a la app cuando el servidor responde 401. */
 object SessionEvents {
     private val _expired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val expired: SharedFlow<Unit> = _expired.asSharedFlow()
@@ -25,11 +25,10 @@ object SessionEvents {
     }
 }
 
-/**
- * Agrega "Authorization: Bearer <token>" a todas las peticiones.
- * Si una llamada ya trae su propio header (changePassword / getMe), no lo pisa.
- */
-private class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor {
+private class AuthInterceptor(
+    private val sessionManager: SessionManager
+) : Interceptor {
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
         val builder = original.newBuilder()
@@ -44,23 +43,29 @@ private class AuthInterceptor(private val sessionManager: SessionManager) : Inte
         val response = chain.proceed(builder.build())
 
         val path = original.url.encodedPath
-        val esAuth = path.endsWith("/auth/login") || path.endsWith("/auth/verify-2fa")
+        val esAuth = path.endsWith("/auth/login") ||
+                path.endsWith("/auth/verify-2fa")
+
         if (response.code == 401 && !esAuth) {
             runBlocking { sessionManager.clearSession() }
             SessionEvents.notifyExpired()
         }
+
         return response
     }
 }
 
 object ApiClient {
+
     private var retrofit: Retrofit? = null
     private var currentBaseUrl: String? = null
 
     @Synchronized
     fun getRetrofit(context: Context): Retrofit {
         val sessionManager = SessionManager(context.applicationContext)
-        val baseUrl = runBlocking { sessionManager.apiBaseUrl.first() }
+        val baseUrl = runBlocking {
+            sessionManager.apiBaseUrl.first()
+        }
 
         if (retrofit == null || currentBaseUrl != baseUrl) {
             val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -80,8 +85,10 @@ object ApiClient {
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
+
             currentBaseUrl = baseUrl
         }
+
         return retrofit!!
     }
 
@@ -93,8 +100,13 @@ object ApiClient {
         return getRetrofit(context).create(ClienteApi::class.java)
     }
 
-    fun getNotificacionesApi(context: Context): NotificacionesApi =
-        getRetrofit(context).create(NotificacionesApi::class.java)
+    fun getNotificacionesApi(context: Context): NotificacionesApi {
+        return getRetrofit(context).create(NotificacionesApi::class.java)
+    }
+
+    fun getGastoApi(context: Context): GastoApi {
+        return getRetrofit(context).create(GastoApi::class.java)
+    }
 
     @Synchronized
     fun reset() {
@@ -102,3 +114,4 @@ object ApiClient {
         currentBaseUrl = null
     }
 }
+

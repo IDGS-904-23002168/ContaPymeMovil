@@ -1,5 +1,4 @@
 package com.example.contapyme
-
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -51,6 +50,7 @@ import com.example.contapyme.ui.theme.ContaPymeTheme
 import com.example.contapyme.ui.viewmodel.AuthViewModel
 import com.example.contapyme.ui.viewmodel.NotificacionesViewModel
 import com.example.contapyme.ui.viewmodel.NotificacionesUiState
+import com.example.contapyme.ui.screens.GastosScreen
 import kotlinx.coroutines.flow.collect
 
 class MainActivity : ComponentActivity() {
@@ -360,7 +360,6 @@ fun AppNavHost() {
             composable(Routes.CHANGE_PASSWORD) {
                 ChangePasswordScreen(
                     viewModel = authViewModel,
-
                     onBack = {
                         navController.popBackStack()
                     }
@@ -381,11 +380,12 @@ fun AppNavHost() {
             // DASHBOARD
             composable(Routes.DASHBOARD) {
                 DashboardScreen(
-
                     onNotificaciones = {
-                        navController.navigate(
-                            Routes.NOTIFICACIONES
-                        )
+                        navController.navigate(Routes.NOTIFICACIONES)
+                    },
+
+                    onVerGastos = {
+                        navController.navigate(Routes.GASTOS)
                     },
 
                     onVerAlerta = { id ->
@@ -399,18 +399,11 @@ fun AppNavHost() {
                     },
 
                     onCerrarSesion = {
-                        // Bloquear nuevas consultas durante
-                        // el cierre de sesión.
                         cerrandoSesion = true
-
-                        // Limpiar información de notificaciones.
                         notificacionesViewModel.limpiarSesion()
-
-                        // Cerrar las acciones rápidas.
                         showQuickActions = false
-
-                        // Mantener el cierre de sesión original.
                         authViewModel.logout()
+
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(Routes.DASHBOARD) {
                                 inclusive = true
@@ -418,8 +411,8 @@ fun AppNavHost() {
                         }
                     },
 
-                    // Estado real de las notificaciones.
                     notificacionesState = notificacionesState,
+
                     onReintentarNotificaciones = {
                         notificacionesViewModel.reintentar()
                     }
@@ -450,6 +443,16 @@ fun AppNavHost() {
 
                     onGuardar = {
                         navController.popBackStack()
+                    }
+                )
+
+            }
+
+            composable(Routes.GASTOS) {
+                GastosScreen(
+                    onBack = { navController.popBackStack() },
+                    onRegistrar = {
+                        navController.navigate(Routes.REGISTRAR_GASTO)
                     }
                 )
             }
@@ -685,3 +688,4 @@ fun AppNavHost() {
         }
     }
 }
+
